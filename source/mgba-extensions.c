@@ -3,26 +3,23 @@
 
 #define NULL ((void *) 0)
 
-// #define REG_MGBA_EXTENSIONS_ENABLED ((volatile unsigned short *) 0x04FFFA00)
-// #define REG_MGBA_EXTENSIONS_CNT ((volatile unsigned short *) 0x04FFFA02)
-// #define REG_MGBA_EXTENSION_0 ((volatile u32 *) 0x04FFFA08)
 #define ENABLED_VALUE 0x1DEA
-#define ENABLE_VALUE 0xC0DE
+#define ENABLE_CODE 0xC0DE
 
 #define REG_HWEX_ENABLE ((volatile unsigned short *) 0x04400A00)
 #define REG_HWEX_VERSION ((volatile unsigned short *) 0x04400A02)
-#define REG_HWEX_ENABLE_FLAGS_0 ((volatile unsigned short *) 0x04400A04)
-#define REG_HWEX_ENABLE_FLAGS_1 ((volatile unsigned short *) 0x04400A06)
-#define REG_HWEX_ENABLE_FLAGS_2 ((volatile unsigned short *) 0x04400A08)
-#define REG_HWEX_ENABLE_FLAGS_3 ((volatile unsigned short *) 0x04400A0A)
-#define REG_HWEX_ENABLE_FLAGS_4 ((volatile unsigned short *) 0x04400A0C)
-#define REG_HWEX_ENABLE_FLAGS_5 ((volatile unsigned short *) 0x04400A0E)
-#define REG_HWEX0_CNT ((volatile unsigned short *) 0x04400A10)
-#define REG_HWEX0_RET_CODE ((volatile unsigned short *) 0x04400A12)
-#define REG_HWEX0_P0 ((volatile unsigned long *) 0x04400A14)
-#define REG_HWEX0_P1 ((volatile unsigned long *) 0x04400A18)
-#define REG_HWEX0_P2 ((volatile unsigned long *) 0x04400A1C)
-#define REG_HWEX0_P3 ((volatile unsigned long *) 0x04400A20)
+#define REG_HWEX0_ENABLE ((volatile unsigned short *) 0x04400A04)
+#define REG_HWEX0_CNT ((volatile unsigned short *) 0x04400A06)
+#define REG_HWEX0_RET_CODE ((volatile unsigned short *) 0x04400A08)
+#define REG_HWEX0_UNUSED ((volatile unsigned short *) 0x04400A0A)
+#define REG_HWEX0_P0 ((volatile unsigned long *) 0x04400A0C)
+#define REG_HWEX0_P1 ((volatile unsigned long *) 0x04400A10)
+#define REG_HWEX0_P2 ((volatile unsigned long *) 0x04400A14)
+#define REG_HWEX0_P3 ((volatile unsigned long *) 0x04400A18)
+
+const volatile unsigned short * extensionEnableRegisters[] = {
+    REG_HWEX0_ENABLE // more ram
+};
 
 const volatile unsigned short * extensionCNTs[] = {
     REG_HWEX0_CNT // more ram
@@ -49,14 +46,13 @@ void HandleMgbaExtensions(void) {
     }
     
     if (mgbaExtensionsData->active) {
-        //u32 flags = *REG_MGBA_EXTENSIONS_CNT;
         for (u32 i = 0; i < NUM_OF_EXTENSIONS; i++) {
             if (mgbaExtensionsData->extensionsSuccessCallbacks[i] != NULL
-                /*&& (flags & (1 << i))*/) 
+                && *extensionEnableRegisters[i] == ENABLED_VALUE) 
             {
                 unsigned short cnt = *(extensionCNTs[i]);
                 if ((cnt & 0x8000) == 0) {
-                    u32 returnCode = *(extensionReturnCodes[i]);
+                    u32 returnCode = *extensionReturnCodes[i];
                     MgbaExtensionCallback callback;
                     if (returnCode >= HWEX_RET_ERR_UNKNOWN) {
                         callback = mgbaExtensionsData->extensionsErrorCallbacks[i];
@@ -81,7 +77,7 @@ void HandleMgbaExtensions(void) {
 
 void InitMgbaExtensions(struct MgbaExtensionsData* data) {
     mgbaExtensionsData = data;
-    *REG_HWEX_ENABLE = ENABLE_VALUE;
+    *REG_HWEX_ENABLE = ENABLE_CODE;
     UpdateActiveBit();
     for (u32 i = 0; i < NUM_OF_EXTENSIONS; i++) {
         mgbaExtensionsData->extensionsSuccessCallbacks[i] = NULL;
@@ -89,7 +85,7 @@ void InitMgbaExtensions(struct MgbaExtensionsData* data) {
     }
 
     if (data->active) {
-        *REG_HWEX_ENABLE_FLAGS_0 = 1;
+        *REG_HWEX0_ENABLE = ENABLE_CODE;
     }
 }
 
@@ -112,6 +108,9 @@ enum {
     MORE_RAM_WRITE = 0,
     MORE_RAM_READ = 1,
     MORE_RAM_SWAP = 2,
+    MORE_RAM_INIT = 3,
+    MORE_RAM_RESIZE = 4,
+    MORE_RAM_DESTROY = 5,
 };
 
 static u32 MoreRamExtensionBase(u32 action, u32 * addr, u32 size, u32 index, 
@@ -148,4 +147,15 @@ u32 MoreRamExtensionSwap(void * addr, u32 size, u32 index,
     MgbaExtensionCallback successCallback,  MgbaExtensionCallback errorCallback) 
 {
     return MoreRamExtensionBase(MORE_RAM_SWAP, addr, size, index, successCallback, errorCallback) ;
+}
+
+u32 MoreRamExtensionInit(u32 size, MgbaExtensionCallback successCallback,  MgbaExtensionCallback errorCallback) 
+{
+    if (SetExtensionHandler(EXTENSION_MORE_RAM, successCallback,  errorCallback)) {
+        *REG_HWEX0_P0 = MORE_RAM_INIT;
+        *REG_HWEX0_P1 = size;
+        *REG_HWEX0_CNT = 1;
+        return 1;
+    }
+    return 0;
 }

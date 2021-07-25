@@ -50,7 +50,7 @@ void loadFirstString(u32 previousStepReturnCode) {
 	if (previousStepReturnCode == HWEX_RET_OK) {
 		MoreRamExtensionRead(
 			ramData, 
-			sizeof(str2), 	
+			sizeof(str1), 	
 			STR1_RAM_EXT_INDEX, 
 			printFirstStringLoadSecond, 	
 			onError
@@ -73,15 +73,26 @@ void writeSecondStringToRamExtension(u32 previousStepReturnCode) {
 	} */
 }
 
-void writeFirstStringToRamExtension(void) {
-	MoreRamExtensionWrite(
-		str1, 								// pointer to data
-		sizeof(str1), 						// data size
-		STR1_RAM_EXT_INDEX, 				// index to write the data
-		writeSecondStringToRamExtension,	// success callback: copy the second string 	
+void writeFirstStringToRamExtension(u32 previousStepReturnCode) {
+	if (previousStepReturnCode == HWEX_RET_OK) {
+		MoreRamExtensionWrite(
+			str1, 								// pointer to data
+			sizeof(str1), 						// data size
+			STR1_RAM_EXT_INDEX, 				// index to write the data
+			writeSecondStringToRamExtension,	// success callback: copy the second string 	
+			onError								// error callback
+		);
+	}
+}
+
+void initRamExtension(void) {
+	MoreRamExtensionInit(
+		0x100000,
+		writeFirstStringToRamExtension,		// success callback: copy the second string 	
 		onError								// error callback
 	);
 }
+
 
 #define DELAY 0x1F
 
@@ -107,7 +118,7 @@ int main(void) {
 		// Call my code
 		if (!flag && extensionsData.active) {
 			iprintf("Extensions active\n\n");
-			writeFirstStringToRamExtension();
+			initRamExtension();
 			flag = 1;
 		}
 		

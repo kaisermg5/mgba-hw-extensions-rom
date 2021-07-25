@@ -43,5 +43,6 @@ u32 MoreRamExtensionRead(void * addr, u32 size, u32 index,
     MgbaExtensionCallback successCallback,  MgbaExtensionCallback errorCallback);
 u32 MoreRamExtensionSwap(void * addr, u32 size, u32 index, 
     MgbaExtensionCallback successCallback,  MgbaExtensionCallback errorCallback);
+u32 MoreRamExtensionInit(u32 size, MgbaExtensionCallback successCallback,  MgbaExtensionCallback errorCallback);
 
 #endif
